@@ -1,0 +1,6 @@
+@SolanaAPI_Test_HostAddress = http://localhost:5069
+
+GET {{SolanaAPI_Test_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
