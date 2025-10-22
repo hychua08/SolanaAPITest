@@ -201,91 +201,79 @@ namespace SolanaAPI_Test.Controllers
         [HttpPost("transferbypk")]
         public async Task<IActionResult> TransferByPublicKey([FromBody] TransferRequest request)
         {
-            try
-            {
-                string enDek;
-                string enPrivateKey;
+            try 
+            { 
+                string enDek; 
+                string enPk; 
+                var walletDetail = await walletrepo.GetUserWallet(request.sender); 
 
-                var walletDetail = await walletrepo.GetUserWallet(request.sender);
+                enDek = walletDetail.EncryptedDek; 
+                enPk = walletDetail.EncryptedPrivateKey; 
 
-                enDek = walletDetail.EncryptedDek;
-                enPrivateKey = walletDetail.EncryptedPrivateKey;
-
-                /*
-                 Decrypt step:
-                1.Get Encypted Data from db
-                2.Decrypt Dek using aws kms
-                3.Decypte Private Key
-                 */
+                /* Decrypt step: 
+                 * 1.Get Encypted Data from db 
+                 * 2.Decrypt Dek using aws kms 
+                 * 3.Decypte Private Key 
+                 */ 
 
                 byte[] dek = Convert.FromBase64String(enDek);
-                var kmsHelper = new KmsHelper();
-                byte[] deDek = await kmsHelper.KmsUnwrapKey(dek);
+                var kmsHelper = new KmsHelper(); 
 
-                byte[] decryptedPrivateKey = AesGcmHelpers.DecryptFromBase64(deDek, enPrivateKey);
-                byte[] publicKey = Convert.FromBase64String(request.sender);
+                byte[] deDek = await kmsHelper.KmsUnwrapKey(dek); 
+                byte[] decryptedPrivateKey = AesGcmHelpers.DecryptFromBase64(deDek, enPk); 
+
                 var privateKey = Convert.ToBase64String(decryptedPrivateKey);
-                
-                Account sender = new Account(decryptedPrivateKey, publicKey);//need to pass private key and public key
+                byte[] privateKeyBytes = Convert.FromBase64String(privateKey);
+                byte[] publicKeyBytes = Convert.FromBase64String(request.sender);
+
+                var sender = new Account(privateKeyBytes, publicKeyBytes); 
 
                 var rpc = GetRpcClient("devnet");
-                var balanceResponse = await rpc.GetBalanceAsync(sender.PublicKey);
-                decimal balance = balanceResponse.Result.Value / LamportsPerSol;
 
-                if (balance < request.Amount)
-                {
-                    return BadRequest("Insufficient balance");
-                }
+                var balanceResponse = await rpc.GetBalanceAsync(sender.PublicKey); 
+                //decimal balance = balanceResponse.Result.Value / LamportsPerSol; 
 
-                var blockhash = await rpc.GetLatestBlockHashAsync();
+                //if (balance < request.Amount) 
+                //{ 
+                //    return BadRequest("Insufficient balance");
+                //} 
+                var blockhash = await rpc.GetLatestBlockHashAsync(); 
 
                 ulong lamports = (ulong)(request.Amount * LamportsPerSol);
-                var recipient = new PublicKey(request.Recipient);
 
-                var tx = new TransactionBuilder().SetRecentBlockHash(blockhash.Result.Value.Blockhash)
+                var recipient = new PublicKey(request.Recipient); 
+                var tx = new TransactionBuilder()
+                    .SetRecentBlockHash(blockhash.Result.Value.Blockhash)
                     .SetFeePayer(sender)
-                    .AddInstruction(Solnet.Programs.SystemProgram.Transfer(
-                        fromPublicKey: sender.PublicKey,
-                        toPublicKey: recipient,
-                        lamports: lamports
-                        )
-                    )
-                    .Build(sender);
-
-                var sendTx = await rpc.SendTransactionAsync(tx);
-
-                if (sendTx.WasSuccessful)
-                {
-                    return Ok(new
-                    {
-                        message = "Transaction sent successfully",
-                        signature = sendTx.Result,
-                        sender = sender.PublicKey,
-                        recipient = request.Recipient,
-                        amount = request.Amount
-                    });
+                    .AddInstruction(Solnet.Programs.SystemProgram.Transfer
+                        (fromPublicKey: sender.PublicKey, 
+                        toPublicKey: recipient, 
+                        lamports: lamports))
+                    .Build(sender); 
+                
+                var sendTx = await rpc.SendTransactionAsync(tx); 
+                if (sendTx.WasSuccessful) 
+                { 
+                    return Ok(new 
+                    { message = "Transaction sent successfully", 
+                        signature = sendTx.Result, 
+                        sender = sender.PublicKey, 
+                        recipient = request.Recipient, 
+                        amount = request.Amount }); 
+                } 
+                else { 
+                    return BadRequest(new 
+                    { message = "Transaction failed", 
+                        error = sendTx.Reason }
+                    ); 
+                } 
                 }
-                else
-                {
-                    return BadRequest(new
-                    {
-                        message = "Transaction failed",
-                        error = sendTx.Reason
-                    });
-                }
+            catch (Exception ex) 
+            { 
+                return BadRequest(new { error = ex.Message }); 
             }
-            catch (Exception ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
-            finally
-            {
-                //if (deDek != null)
-                //    CryptographicOperations.ZeroMemory(deDek);
-                //if (decryptedPrivateKey != null)
-                //    CryptographicOperations.ZeroMemory(decryptedPrivateKey);
-            }
-        }
+
+         }
 
         [HttpPost("airdrop")]
         public async Task<IActionResult> RequestAirdrop(TransferRequest request)
