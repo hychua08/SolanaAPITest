@@ -55,7 +55,8 @@ namespace SolanaAPI_Test.Controllers
             **/
 
             byte[] dek = RandomNumberGenerator.GetBytes(32);
-            var encryptedPrivateKey = AesGcmHelpers.EncryptToBase64(dek, account.PrivateKey); //To store
+            byte[] privateKeyBytes = account.PrivateKey.KeyBytes;
+            var encryptedPrivateKey = AesGcmHelpers.EncryptToBase64(dek, privateKeyBytes); //To store
 
             var kmsHelper = new KmsHelper();
             byte[] encryptedDek = await kmsHelper.KmsWrapKey(dek); 
@@ -75,7 +76,7 @@ namespace SolanaAPI_Test.Controllers
             {
                 Id = Guid.NewGuid(),
                 UserId = Guid.NewGuid(),
-                PublicKey = account.PublicKey,
+                PublicKey = account.PublicKey.ToString(),
                 KeystoreJson = keystore,
                 CryptoAlgorithm = "AWS KMS",
                 EncryptedDek = strEncryptedDek,
@@ -206,7 +207,6 @@ namespace SolanaAPI_Test.Controllers
                 string enDek; 
                 string enPk; 
                 var walletDetail = await walletrepo.GetUserWallet(request.sender); 
-
                 enDek = walletDetail.EncryptedDek; 
                 enPk = walletDetail.EncryptedPrivateKey; 
 
@@ -216,18 +216,20 @@ namespace SolanaAPI_Test.Controllers
                  * 3.Decypte Private Key 
                  */ 
 
-                byte[] dek = Convert.FromBase64String(enDek);
+                byte[] encryptedDekBytes = Convert.FromBase64String(enDek);
                 var kmsHelper = new KmsHelper(); 
+                byte[] deDek = await kmsHelper.KmsUnwrapKey(encryptedDekBytes); 
 
-                byte[] deDek = await kmsHelper.KmsUnwrapKey(dek); 
                 byte[] decryptedPrivateKey = AesGcmHelpers.DecryptFromBase64(deDek, enPk); 
 
+                //4
                 var privateKey = Convert.ToBase64String(decryptedPrivateKey);
                 byte[] privateKeyBytes = Convert.FromBase64String(privateKey);
                 byte[] publicKeyBytes = Convert.FromBase64String(request.sender);
-
-                var sender = new Account(privateKeyBytes, publicKeyBytes); 
-
+                string publicKeyBase64 = request.sender;
+                var privateKeyBase64 = Convert.ToBase64String(decryptedPrivateKey);
+                //var sender = new Account(decryptedPrivateKey, publicKeyBytes);
+                var sender = new Account(privateKeyBase64, publicKeyBase64);
                 var rpc = GetRpcClient("devnet");
 
                 var balanceResponse = await rpc.GetBalanceAsync(sender.PublicKey); 
