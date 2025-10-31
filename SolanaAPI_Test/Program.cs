@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SolanaAPI_Test.DAL;
 using SolanaAPI_Test.Interface;
 using SolanaAPI_Test.Repositories;
+using SolanaAPI_Test.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,11 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddHttpClient<SolanaNftService>();
+builder.Services.AddHttpClient<JupiterSwapService>();
+builder.Services.AddHttpClient<RaydiumSwapService>();
+
 builder.Services.AddDbContext<ApiDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IWalletRepo, WalletRepo>();

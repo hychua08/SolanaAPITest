@@ -6,10 +6,11 @@ namespace SolanaAPI_Test.Models
     public class UserWallet
     {
         [Key]
-        public Guid Id { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int Id { get; set; }
 
-        [Required]
-        public Guid UserId { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
+        public int UserId { get; set; }
 
         [Required]
         [MaxLength(255)]
