@@ -10,6 +10,7 @@ using Solnet.KeyStore;
 using Solnet.KeyStore.Services;
 using Solnet.Programs;
 using Solnet.Programs.Models.TokenProgram;
+using Solnet.Programs.TokenSwap;
 using Solnet.Rpc;
 using Solnet.Rpc.Builders;
 using Solnet.Rpc.Models;
@@ -341,7 +342,7 @@ namespace SolanaAPI_Test.Controllers
 
             var tokenProgramId = TokenProgram.ProgramIdKey;
             var rentExemption = await rpc.GetMinimumBalanceForRentExemptionAsync(TokenProgram.MintAccountDataSize);
-
+            
             //create mint
             var tx = new TransactionBuilder()
                 .SetFeePayer(mintAuth)
@@ -766,6 +767,17 @@ namespace SolanaAPI_Test.Controllers
 
             return result;
         }
+
+        [HttpGet("checkProgram")]
+        public async Task<IActionResult> GetProgramDetail(string programId)
+        {
+            var rpc = GetRpcClient("devnet");
+            var result = await rpc.GetProgramAccountsAsync(programId);
+
+
+            return Ok(result);
+        }
+
 
         private async Task<Byte[]>ConvertToByte(string address)
         {
